@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, withTransaction } from '../db/index.js';
 import { authenticate, requireRole, httpError } from '../middleware/auth.js';
 import { wrap, audit, toeaFromRequest, isStaff, isoDate } from '../lib/http.js';
+import { createInvitation, normaliseEmail } from '../lib/invitations.js';
 
 const router = Router();
 router.use(authenticate);
@@ -32,7 +33,7 @@ const shape = (r) => ({
   savingsBalance: Number(r.savings_balance),
 });
 
-router.get('/', requireRole('admin', 'officer', 'auditor'), wrap(async (req, res) => {
+router.get('/', requireRole('admin', 'officer', 'cashier', 'auditor'), wrap(async (req, res) => {
   const q = String(req.query.q || '').trim();
   const { rows } = await query(
     `${MEMBER_SELECT} WHERE ($1 = '' OR m.full_name ILIKE '%' || $1 || '%' OR m.member_no ILIKE '%' || $1 || '%')
@@ -56,6 +57,18 @@ router.post('/', requireRole('admin', 'officer'), wrap(async (req, res) => {
     return r;
   });
   res.status(201).json(shape({ ...rows[0], share_balance: 0, savings_balance: 0 }));
+}));
+
+// Invite a member to their own portal account by email.
+router.post('/:id/invite', requireRole('admin', 'officer'), wrap(async (req, res) => {
+  const m = await query('SELECT full_name, email FROM members WHERE id = $1', [req.params.id]);
+  if (!m.rows[0]) throw httpError(404, 'Member not found');
+  const email = normaliseEmail(req.body?.email || m.rows[0].email);
+  const result = await createInvitation({
+    email, role: 'member', fullName: m.rows[0].full_name, memberId: req.params.id, invitedBy: req.user.sub,
+  });
+  await audit(req.user, 'invitation.create', 'member', req.params.id, { email });
+  res.status(201).json(result);
 }));
 
 router.get('/:id', wrap(async (req, res) => {
@@ -85,7 +98,7 @@ router.patch('/:id', requireRole('admin', 'officer'), wrap(async (req, res) => {
 }));
 
 // Share capital: subscriptions and withdrawals.
-router.post('/:id/shares', requireRole('admin', 'officer'), wrap(async (req, res) => {
+router.post('/:id/shares', requireRole('admin', 'cashier'), wrap(async (req, res) => {
   const amount = toeaFromRequest(req.body?.amount, 'Amount');
   const type = req.body?.type === 'withdrawal' ? 'withdrawal' : 'subscription';
   const result = await withTransaction(async (c) => {

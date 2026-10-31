@@ -63,7 +63,7 @@ router.get('/accounts/:id', wrap(async (req, res) => {
   });
 }));
 
-router.post('/accounts/:id/transactions', requireRole('admin', 'officer'), wrap(async (req, res) => {
+router.post('/accounts/:id/transactions', requireRole('admin', 'cashier'), wrap(async (req, res) => {
   const amount = toeaFromRequest(req.body?.amount, 'Amount');
   const type = req.body?.type === 'withdrawal' ? 'withdrawal' : 'deposit';
   const reference = req.body?.reference ? String(req.body.reference).slice(0, 200) : null;

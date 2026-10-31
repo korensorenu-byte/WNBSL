@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
 import { query } from '../db/index.js';
 import { authenticate, requireRole, httpError } from '../middleware/auth.js';
 import { wrap, audit, isoDate } from '../lib/http.js';
@@ -46,25 +45,7 @@ router.get('/users', requireRole('admin'), wrap(async (req, res) => {
   res.json(rows.map((u) => ({ id: u.id, email: u.email, fullName: u.full_name, role: u.role, memberId: u.member_id, active: u.active })));
 }));
 
-router.post('/users', requireRole('admin'), wrap(async (req, res) => {
-  const { email, fullName, password, role, memberId } = req.body || {};
-  if (!email || !fullName) throw httpError(400, 'Email and full name are required');
-  if (!['admin', 'officer', 'auditor', 'member'].includes(role)) throw httpError(400, 'Invalid role');
-  if (role === 'member' && !memberId) throw httpError(400, 'Member accounts must be linked to a member');
-  if (!password || String(password).length < 12) throw httpError(400, 'Password must be at least 12 characters');
-  const hash = await bcrypt.hash(String(password), 12);
-  try {
-    const { rows } = await query(
-      `INSERT INTO users (email, full_name, password_hash, role, member_id)
-       VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-      [String(email).trim().toLowerCase(), String(fullName).trim(), hash, role, memberId || null]);
-    await audit(req.user, 'user.create', 'user', rows[0].id, { role });
-    res.status(201).json({ id: rows[0].id });
-  } catch (err) {
-    if (err.code === '23505') throw httpError(409, 'That email already has an account');
-    throw err;
-  }
-}));
+// New accounts are created only through invitations (see routes/invitations.js).
 
 router.patch('/users/:id', requireRole('admin'), wrap(async (req, res) => {
   if (req.params.id === req.user.sub && req.body?.active === false) {
@@ -78,7 +59,7 @@ router.patch('/users/:id', requireRole('admin'), wrap(async (req, res) => {
 }));
 
 // ---- Dashboard and reports ----
-router.get('/reports/summary', requireRole('admin', 'officer', 'auditor'), wrap(async (req, res) => {
+router.get('/reports/summary', requireRole('admin', 'officer', 'cashier', 'auditor'), wrap(async (req, res) => {
   const [members, shares, savings, loans, arrears, invest] = await Promise.all([
     query(`SELECT COUNT(*) FILTER (WHERE status='active')::int AS active, COUNT(*)::int AS total FROM members`),
     query(`SELECT COALESCE(SUM(CASE WHEN type='subscription' THEN amount_toea ELSE -amount_toea END),0)::bigint AS v FROM share_transactions`),

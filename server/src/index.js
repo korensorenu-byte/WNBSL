@@ -9,6 +9,8 @@ import savingsRoutes from './routes/savings.js';
 import loanRoutes from './routes/loans.js';
 import investmentRoutes from './routes/investments.js';
 import adminRoutes from './routes/admin.js';
+import invitationRoutes from './routes/invitations.js';
+import onboardingRoutes from './routes/onboarding.js';
 import { errorHandler } from './middleware/auth.js';
 
 const app = express();
@@ -28,6 +30,9 @@ app.use((req, res, next) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
+// Invitations and onboarding are mounted before the admin router, which applies auth to everything it serves.
+app.use('/api/invitations', invitationRoutes);
+app.use('/api', onboardingRoutes);
 app.use('/api/members', memberRoutes);
 app.use('/api/savings', savingsRoutes);
 app.use('/api/loans', loanRoutes);
@@ -42,7 +47,7 @@ if (existsSync(webDist)) {
   app.get(/^\/(?!api\/).*/, (req, res) => res.sendFile(path.join(webDist, 'index.html')));
 }
 
-app.use((req, res) => res.status(404).json({ error: 'Not found' }));
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 app.use(errorHandler);
 
 app.listen(port, () => console.log(`WNBSLS API listening on port ${port}`));

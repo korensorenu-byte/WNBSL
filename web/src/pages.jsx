@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api, toKina, toToea, fmtDate } from './api.js';
 
 // ---------- shared UI helpers ----------
-function useData(path, deps = []) {
+export function useData(path, deps = []) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const reload = useCallback(() => {
@@ -13,7 +13,7 @@ function useData(path, deps = []) {
   return { data, error, reload };
 }
 
-function Action({ onRun, children, className = 'primary', disabled = false }) {
+export function Action({ onRun, children, className = 'primary', disabled = false }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   async function run() {
@@ -29,15 +29,15 @@ function Action({ onRun, children, className = 'primary', disabled = false }) {
   );
 }
 
-function Field({ label, children }) {
+export function Field({ label, children }) {
   return <label className="field">{label}{children}</label>;
 }
 
-function Badge({ status }) {
+export function Badge({ status }) {
   return <span className={`badge ${status}`}>{String(status).replace('_', ' ')}</span>;
 }
 
-function Table({ head, rows, empty = 'Nothing to show yet.' }) {
+export function Table({ head, rows, empty = 'Nothing to show yet.' }) {
   if (!rows.length) return <div className="card muted">{empty}</div>;
   return (
     <div className="card table-wrap">
@@ -149,6 +149,27 @@ function MemberDetail({ id, onBack, canWrite }) {
       <h3>Details</h3>
       <div className="card small">
         Phone: {data.phone || '—'} · Village: {data.village || '—'} · Status: {data.status}
+      </div>
+      {canWrite && <PortalInvite member={data} />}
+    </>
+  );
+}
+
+function PortalInvite({ member }) {
+  const [email, setEmail] = useState(member.email || '');
+  const [msg, setMsg] = useState(null);
+  return (
+    <>
+      <h3>Member portal</h3>
+      <div className="card form-row">
+        <input type="email" placeholder="Member's email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Action onRun={async () => {
+          const r = await api(`/members/${member.id}/invite`, { method: 'POST', body: { email } });
+          setMsg(r.emailStatus === 'sent' ? `Invitation emailed to ${email}.`
+            : r.emailStatus === 'failed' ? 'The email could not be sent. Check the notification log.'
+            : r.devLink ? `Email not configured. Invitation link: ${r.devLink}` : 'Invitation created.');
+        }}>Invite to portal</Action>
+        {msg && <span className="small">{msg}</span>}
       </div>
     </>
   );
@@ -441,7 +462,6 @@ function IncomeButton({ id, onDone }) {
 export function AdminPage({ user }) {
   const isAdmin = user.role === 'admin';
   const { data: settings, error, reload } = useData('/settings');
-  const { data: users, reload: reloadUsers } = useData(isAdmin ? '/users' : '/settings', []);
   const { data: audit } = useData('/audit');
   const [draft, setDraft] = useState(null);
 
@@ -490,23 +510,7 @@ export function AdminPage({ user }) {
         </div>
       )}
 
-      {isAdmin && users && (
-        <>
-          <h3>Users</h3>
-          <NewUser onCreated={reloadUsers} />
-          <Table
-            head={['Name', 'Email', 'Role', 'Active', '']}
-            rows={users.map((u) => [
-              u.fullName, u.email, u.role, u.active ? 'Yes' : 'No',
-              u.id !== user.id ? (
-                <Action className="ghost" onRun={async () => { await api(`/users/${u.id}`, { method: 'PATCH', body: { active: !u.active } }); reloadUsers(); }}>
-                  {u.active ? 'Deactivate' : 'Activate'}
-                </Action>
-              ) : null,
-            ])}
-          />
-        </>
-      )}
+      {isAdmin && <NotificationLog />}
 
       {audit && (
         <>
@@ -526,26 +530,19 @@ const DEFAULTS_FOR_PATCH = {
   loan_max_multiple: 0, loan_max_amount_toea: 0, loan_max_term_months: 0, min_savings_balance_toea: 0,
 };
 
-function NewUser({ onCreated }) {
-  const [f, setF] = useState({ email: '', fullName: '', password: '', role: 'officer', memberId: '' });
-  const [open, setOpen] = useState(false);
-  if (!open) return <button className="ghost" onClick={() => setOpen(true)}>Add user</button>;
+function NotificationLog() {
+  const { data, error } = useData('/notifications', []);
+  if (error) return <div className="error">{error}</div>;
   return (
-    <div className="card form-grid">
-      {['email', 'fullName', 'password'].map((k) => (
-        <Field key={k} label={k === 'fullName' ? 'Full name' : k}>
-          <input type={k === 'password' ? 'password' : 'text'} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
-        </Field>
-      ))}
-      <Field label="Role">
-        <select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}>
-          {['admin', 'officer', 'auditor', 'member'].map((r) => <option key={r}>{r}</option>)}
-        </select>
-      </Field>
-      {f.role === 'member' && (
-        <Field label="Member ID (UUID)"><input value={f.memberId} onChange={(e) => setF({ ...f, memberId: e.target.value })} /></Field>
+    <>
+      <h3>Email log (latest 200)</h3>
+      {data && (
+        <Table
+          head={['When', 'To', 'Subject', 'Status']}
+          rows={data.map((n) => [new Date(n.createdAt).toLocaleString('en-GB'), n.to, n.subject, <Badge status={n.status === 'logged' ? 'applied' : n.status === 'sent' ? 'active' : 'rejected'} />])}
+          empty="No emails sent yet."
+        />
       )}
-      <Action onRun={async () => { await api('/users', { method: 'POST', body: f }); setOpen(false); onCreated(); }}>Create user</Action>
-    </div>
+    </>
   );
 }

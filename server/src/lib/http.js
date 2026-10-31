@@ -35,4 +35,4 @@ export function addMonths(dateStr, months) {
   return target.toISOString().slice(0, 10);
 }
 
-export const isStaff = (user) => ['admin', 'officer', 'auditor'].includes(user.role);
+export const isStaff = (user) => ['admin', 'officer', 'cashier', 'auditor'].includes(user.role);

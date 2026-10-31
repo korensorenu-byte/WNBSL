@@ -1,20 +1,28 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, setToken, getToken, toKina } from './api.js';
+import { navigate, usePath, Redirect } from './router.js';
+import { Landing, Login, AcceptInvite } from './public.jsx';
 import { MembersPage, SavingsPage, LoansPage, InvestmentsPage, AdminPage } from './pages.jsx';
+import { TeamPage, OfficerDeskPage, CashDeskPage } from './staff.jsx';
 
-const NAV = [
-  { key: 'dashboard', label: 'Dashboard', roles: ['admin', 'officer', 'auditor', 'member'] },
-  { key: 'members', label: 'Members', roles: ['admin', 'officer', 'auditor', 'member'] },
-  { key: 'savings', label: 'Savings', roles: ['admin', 'officer', 'auditor', 'member'] },
-  { key: 'loans', label: 'Loans', roles: ['admin', 'officer', 'auditor', 'member'] },
-  { key: 'investments', label: 'Investments', roles: ['admin', 'officer', 'auditor'] },
-  { key: 'admin', label: 'Settings & Users', roles: ['admin', 'auditor'] },
+const ALL = ['admin', 'officer', 'cashier', 'auditor', 'member'];
+const SECTIONS = [
+  { key: 'home', label: 'Dashboard', roles: ALL },
+  { key: 'cash', label: 'Cash desk', roles: ['admin', 'cashier'] },
+  { key: 'officer', label: 'Officer desk', roles: ['admin', 'officer'] },
+  { key: 'members', label: 'Members', roles: ['admin', 'officer', 'cashier', 'auditor', 'member'] },
+  { key: 'savings', label: 'Savings', roles: ALL },
+  { key: 'loans', label: 'Loans', roles: ALL },
+  { key: 'investments', label: 'Investments', roles: ['admin', 'officer', 'cashier', 'auditor'] },
+  { key: 'team', label: 'Team & invitations', roles: ['admin'] },
+  { key: 'settings', label: 'Settings & audit', roles: ['admin', 'auditor'] },
 ];
+const MEMBER_LABELS = { home: 'My account', members: 'My details', savings: 'My savings', loans: 'My loans' };
 
 export default function App() {
+  const path = usePath();
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
-  const [page, setPage] = useState('dashboard');
 
   useEffect(() => {
     if (!getToken()) return setChecking(false);
@@ -24,16 +32,38 @@ export default function App() {
       .finally(() => setChecking(false));
   }, []);
 
-  const logout = useCallback(() => {
+  const signOut = useCallback(() => {
     setToken(null);
     setUser(null);
+    navigate('/', { replace: true });
   }, []);
 
   if (checking) return <div className="center muted">Loading…</div>;
-  if (!user) return <Login onLogin={setUser} />;
 
-  const items = NAV.filter((n) => n.roles.includes(user.role));
-  const current = items.some((n) => n.key === page) ? page : 'dashboard';
+  const invite = path.match(/^\/invite\/([^/]+)$/);
+  if (invite) return <AcceptInvite token={decodeURIComponent(invite[1])} onLogin={setUser} />;
+
+  if (path === '/login') {
+    if (user) return <Redirect to="/app" />;
+    return <Login onLogin={setUser} />;
+  }
+
+  if (path === '/app' || path.startsWith('/app/')) {
+    if (!user) return <Login onLogin={setUser} notice="Please sign in to continue." />;
+    return <Shell user={user} path={path} onSignOut={signOut} />;
+  }
+
+  return <Landing user={user} />;
+}
+
+function Shell({ user, path, onSignOut }) {
+  const isMember = user.role === 'member';
+  const items = SECTIONS.filter((s) => s.roles.includes(user.role));
+  const requested = path.replace(/^\/app\/?/, '').split('/')[0] || 'home';
+  const current = items.some((s) => s.key === requested) ? requested : 'home';
+  const label = (s) => (isMember ? MEMBER_LABELS[s.key] || s.label : s.label);
+
+  if (requested !== current && path !== '/app') return <Redirect to="/app" />;
 
   return (
     <div className="shell">
@@ -43,64 +73,35 @@ export default function App() {
           <small>Savings · Loans · Investments</small>
         </div>
         <nav className="nav">
-          {items.map((n) => (
-            <button key={n.key} className={current === n.key ? 'active' : ''} onClick={() => setPage(n.key)}>
-              {n.label}
+          {items.map((s) => (
+            <button key={s.key} className={current === s.key ? 'active' : ''} onClick={() => navigate(s.key === 'home' ? '/app' : `/app/${s.key}`)}>
+              {label(s)}
             </button>
           ))}
         </nav>
         <div className="who">
           <div>{user.fullName}</div>
-          <div className="muted small">{user.role}</div>
-          <button className="ghost" onClick={logout}>Sign out</button>
+          <div className="muted small">{roleName(user.role)}</div>
+          <button className="ghost" onClick={() => navigate('/')}>Public website</button>
+          <button className="ghost" onClick={onSignOut}>Sign out</button>
         </div>
       </aside>
       <main className="content">
-        {current === 'dashboard' && <Dashboard user={user} />}
+        {current === 'home' && <Dashboard user={user} />}
+        {current === 'cash' && <CashDeskPage />}
+        {current === 'officer' && <OfficerDeskPage user={user} />}
         {current === 'members' && <MembersPage user={user} />}
         {current === 'savings' && <SavingsPage user={user} />}
         {current === 'loans' && <LoansPage user={user} />}
         {current === 'investments' && <InvestmentsPage user={user} />}
-        {current === 'admin' && <AdminPage user={user} />}
+        {current === 'team' && <TeamPage user={user} />}
+        {current === 'settings' && <AdminPage user={user} />}
       </main>
     </div>
   );
 }
 
-function Login({ onLogin }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e) {
-    e.preventDefault();
-    setBusy(true);
-    setError('');
-    try {
-      const r = await api('/auth/login', { method: 'POST', body: { email, password } });
-      setToken(r.token);
-      onLogin(r.user);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="login-wrap">
-      <form className="card login" onSubmit={submit}>
-        <h1>WNBSLS</h1>
-        <p className="muted">West New Britain Savings and Loans Society</p>
-        <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" /></label>
-        <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></label>
-        {error && <div className="error">{error}</div>}
-        <button className="primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-      </form>
-    </div>
-  );
-}
+const roleName = (r) => ({ admin: 'Administrator', officer: 'Loan Officer', cashier: 'Cashier', auditor: 'Auditor', member: 'Member' })[r] || r;
 
 function Dashboard({ user }) {
   const [s, setS] = useState(null);
@@ -114,16 +115,29 @@ function Dashboard({ user }) {
     return (
       <>
         <h2>Welcome, {user.fullName}</h2>
-        <p className="muted">Use the menu to view your savings, loans and share capital.</p>
+        <p className="muted">Use the menu to view your savings, loans and share capital. Your statements and loan schedules are shown there.</p>
       </>
     );
   }
   if (err) return <div className="error">{err}</div>;
   if (!s) return <div className="muted">Loading summary…</div>;
 
+  const quick = {
+    admin: ['Review membership requests', 'officer', 'Open the cash desk', 'cash'],
+    officer: ['Review membership requests', 'officer', 'Go to members', 'members'],
+    cashier: ['Open the cash desk', 'cash', 'Go to savings', 'savings'],
+    auditor: ['View the audit trail', 'settings', 'Go to loans', 'loans'],
+  }[user.role];
+
   return (
     <>
       <h2>Dashboard</h2>
+      {quick && (
+        <div className="form-row">
+          <button className="primary" onClick={() => navigate(`/app/${quick[1]}`)}>{quick[0]}</button>
+          <button className="ghost" onClick={() => navigate(`/app/${quick[3]}`)}>{quick[2]}</button>
+        </div>
+      )}
       <div className="stats">
         <Stat label="Active members" value={`${s.members.active}`} sub={`of ${s.members.total} registered`} />
         <Stat label="Share capital" value={toKina(s.shareCapital)} />

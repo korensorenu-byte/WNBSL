@@ -8,7 +8,7 @@ router.use(authenticate);
 
 const CATEGORIES = ['property', 'shares', 'business', 'fixed_deposit', 'agriculture', 'other'];
 
-router.get('/', requireRole('admin', 'officer', 'auditor'), wrap(async (req, res) => {
+router.get('/', requireRole('admin', 'officer', 'cashier', 'auditor'), wrap(async (req, res) => {
   const { rows } = await query(
     `SELECT i.*,
        COALESCE((SELECT SUM(amount_toea) FROM investment_income x WHERE x.investment_id = i.id AND x.kind='return'),0)::bigint AS returns_total,

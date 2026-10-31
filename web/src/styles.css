@@ -119,3 +119,57 @@ tr:last-child td { border-bottom: 0; }
   .shell { display: block; }
   .card { box-shadow: none; }
 }
+
+/* ---------- Landing page ---------- */
+.landing { min-height: 100vh; background: var(--bg); }
+.topbar {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem;
+  padding: 0.9rem 1.5rem; background: var(--green); color: #fff; position: sticky; top: 0; z-index: 3;
+}
+.topbar nav { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.topbar a { color: #dce9e3; text-decoration: none; font-size: 0.95rem; }
+.topbar a:hover { color: #fff; text-decoration: underline; }
+.topbar .ghost { color: #fff; border-color: rgba(255,255,255,0.4); }
+.topbar .primary { background: var(--gold); color: #1d2a25; }
+.brand-inline { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
+.brand-inline .small { color: #cfe1d8; }
+.hero {
+  display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; align-items: center;
+  padding: 3.5rem 1.5rem 2.5rem; max-width: 1100px; margin: auto;
+}
+.hero h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.15; color: var(--green); }
+.lead { font-size: 1.1rem; color: #334a42; }
+.hero-facts { display: grid; gap: 1rem; }
+.section { max-width: 1100px; margin: auto; padding: 2rem 1.5rem; }
+.section h2 { color: var(--green); font-size: 1.5rem; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.9rem; }
+.calc-result { display: flex; flex-direction: column; gap: 0.2rem; justify-content: center; }
+.footer { background: var(--green); color: #dce9e3; text-align: center; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.footer .muted { color: #b8cdc3; }
+button.big { padding: 0.8rem 1.2rem; font-size: 1rem; }
+button.primary.big { background: var(--green); }
+.success { background: #e3f5ea; color: var(--ok); border-radius: 10px; padding: 0.8rem 1rem; }
+.field.wide, .wide { grid-column: 1 / -1; }
+textarea { font: inherit; padding: 0.5rem 0.6rem; border: 1px solid #c9d4cf; border-radius: 8px; width: 100%; }
+.back { align-self: flex-start; padding: 0.2rem 0.4rem; }
+.mono { font-family: ui-monospace, Menlo, Consolas, monospace; word-break: break-all; margin-top: 0.4rem; }
+
+/* ---------- Cash desk ---------- */
+.pick-list { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.6rem; }
+.pick {
+  text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  padding: 0.6rem 0.8rem; color: var(--text);
+}
+.pick:hover { border-color: var(--green-2); }
+.receipt { border-left: 4px solid var(--gold); }
+.member-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.member-head h3 { margin: 0; }
+
+@media (max-width: 780px) {
+  .hero { grid-template-columns: 1fr; padding: 2rem 1rem; }
+  .topbar { padding: 0.8rem 1rem; }
+  .section { padding: 1.5rem 1rem; }
+}
+.badge.pending, .badge.logged { background: #fff4e0; color: var(--warn); }
+.badge.accepted, .badge.sent { background: #e3f5ea; color: var(--ok); }
+.badge.expired, .badge.cancelled, .badge.failed { background: #fde8e6; color: var(--danger); }

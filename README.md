@@ -178,3 +178,22 @@ Fly may show a different `postgres` command for newer managed databases. Follow 
 4. Click **Manual Deploy > Deploy latest commit**.
 
 Neon's free plan pauses the database after a few minutes of inactivity; the first request after a pause is slower.
+
+
+## Onboarding, invitations and email
+
+- **Landing page** (`/`): about the Society, a loan calculator, a public membership request form and a sign-in button.
+- **Staff accounts** are created only by invitation. The administrator sends an invitation from **Team & invitations**. The person receives an email with a one-time link (valid 7 days) and chooses a password.
+- **Roles:** `admin` (approves, configures, invites staff), `officer` (loan officer: members, membership requests, loan applications, invites members), `cashier` (cash desk: deposits, withdrawals, share purchases and repayments), `auditor` (read-only), `member` (own records and loan applications).
+- **Customers** are invited to their own portal from the member record (or when a membership request is approved). Members can sign in only after accepting the link.
+- **Email notifications** are sent for: staff and member invitations, membership request received (applicant and administrators), membership approved or declined, loan approved, rejected or disbursed, and repayments received. The administrator sees every attempt under **Settings & audit → Email log**.
+
+### Configuring email (Resend)
+
+1. Create an account at resend.com and verify a sending domain.
+2. Set `RESEND_API_KEY`, `MAIL_FROM` (for example `WNBSLS <noreply@yourdomain.org>`) and `APP_URL` (the public address of the site) in the server environment.
+3. Without `RESEND_API_KEY`, emails are printed to the server log and the invitation link is shown on screen, so the workflow can be tested locally.
+
+### Deployment note
+
+Set `APP_URL` to the public address of the deployed site, otherwise invitation links will point to localhost.

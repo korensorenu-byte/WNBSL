@@ -6,6 +6,21 @@ import {
   loanSchedule, allocateRepayment, outstandingBalance, arrearsOf, maxLoanAmount,
 } from '../lib/finance.js';
 import { getSettings } from '../lib/settings-store.js';
+import { notify } from '../lib/notify.js';
+import { loanUpdateEmail } from '../lib/templates.js';
+
+// Email the member about a loan event. Failures are recorded, never thrown.
+async function emailMemberAboutLoan(loanId, details) {
+  const r = await query(
+    `SELECT l.loan_no, l.principal_toea, m.full_name, m.email
+       FROM loans l JOIN members m ON m.id = l.member_id WHERE l.id = $1`, [loanId]);
+  const loan = r.rows[0];
+  if (!loan?.email) return;
+  await notify({
+    to: loan.email,
+    ...loanUpdateEmail({ name: loan.full_name, loanNo: loan.loan_no, principal: loan.principal_toea, ...details }),
+  });
+}
 
 const router = Router();
 router.use(authenticate);
@@ -108,7 +123,7 @@ router.post('/', wrap(async (req, res) => {
   res.status(201).json({ id: rows[0].id, loanNo: rows[0].loan_no });
 }));
 
-router.get('/arrears', requireRole('admin', 'officer', 'auditor'), wrap(async (req, res) => {
+router.get('/arrears', requireRole('admin', 'officer', 'cashier', 'auditor'), wrap(async (req, res) => {
   const today = isoDate();
   const { rows } = await query(
     `SELECT i.*, l.loan_no, l.status, m.full_name AS member_name, m.member_no
@@ -151,6 +166,7 @@ router.post('/:id/approve', requireRole('admin'), wrap(async (req, res) => {
       WHERE id=$1 AND status='applied' RETURNING id`, [req.params.id, req.user.sub]);
   if (!rows[0]) throw httpError(400, 'Only applied loans can be approved');
   await audit(req.user, 'loan.approve', 'loan', req.params.id);
+  await emailMemberAboutLoan(req.params.id, { status: 'approved' });
   res.json({ ok: true });
 }));
 
@@ -160,6 +176,7 @@ router.post('/:id/reject', requireRole('admin'), wrap(async (req, res) => {
     [req.params.id, String(req.body?.reason || '').slice(0, 500) || null]);
   if (!rows[0]) throw httpError(400, 'Only applied loans can be rejected');
   await audit(req.user, 'loan.reject', 'loan', req.params.id, { reason: req.body?.reason });
+  await emailMemberAboutLoan(req.params.id, { status: 'rejected', reason: req.body?.reason });
   res.json({ ok: true });
 }));
 
@@ -188,10 +205,11 @@ router.post('/:id/disburse', requireRole('admin'), wrap(async (req, res) => {
       [loan.id, disbursedOn, req.user.sub]);
     await audit(req.user, 'loan.disburse', 'loan', loan.id, { disbursedOn }, c);
   });
+  await emailMemberAboutLoan(req.params.id, { status: 'disbursed' });
   res.json({ ok: true });
 }));
 
-router.post('/:id/repayments', requireRole('admin', 'officer'), wrap(async (req, res) => {
+router.post('/:id/repayments', requireRole('admin', 'cashier'), wrap(async (req, res) => {
   const amount = toeaFromRequest(req.body?.amount, 'Repayment amount');
   const paidOn = isoDate(req.body?.paidOn);
   const result = await withTransaction(async (c) => {
@@ -217,6 +235,10 @@ router.post('/:id/repayments', requireRole('admin', 'officer'), wrap(async (req,
     if (remaining === 0) await c.query(`UPDATE loans SET status='closed' WHERE id=$1`, [req.params.id]);
     await audit(req.user, 'loan.repayment', 'loan', req.params.id, { amount: applied, paidOn }, c);
     return { applied, outstanding: remaining, closed: remaining === 0 };
+  });
+  await emailMemberAboutLoan(req.params.id, {
+    kind: 'repayment', principal: result.applied, outstanding: result.outstanding,
+    paidOn: paidOn,
   });
   res.status(201).json(result);
 }));
