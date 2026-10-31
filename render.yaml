@@ -1,30 +1,22 @@
-# Render Blueprint for WNBSLS. In Render: New > Blueprint > select this repo.
-# Render then asks for ADMIN_EMAIL and ADMIN_PASSWORD (the first administrator login).
-databases:
-  - name: wnbsls-db
-    databaseName: wnbsls
-    user: wnbsls
-    # Free databases expire after 30 days. Use a paid plan before entering real member data.
-    plan: free
-
+# Render Blueprint for WNBSLS (web service only).
+# The database is hosted on Neon, so no Render database is created here.
+# Set DATABASE_URL to your Neon connection string in the service's Environment tab.
 services:
   - type: web
     name: wnbsls
     runtime: node
     plan: free            # free web services sleep when idle; the first visit can take ~30 seconds
     healthCheckPath: /api/health
-    buildCommand: npm --prefix server install && npm --prefix web install && npm --prefix web run build
+    buildCommand: npm install && npm run build
     # Migrations and seed are idempotent: safe to run on every start.
-    startCommand: npm --prefix server run migrate && npm --prefix server run seed && npm --prefix server start
+    startCommand: npm start
     envVars:
       - key: NODE_VERSION
         value: "20"
       - key: DATABASE_URL
-        fromDatabase:
-          name: wnbsls-db
-          property: connectionString
+        sync: false       # paste the Neon connection string in the Render dashboard
       - key: DATABASE_SSL
-        value: "false"    # Render's internal database connection does not use TLS
+        value: "true"     # Neon requires SSL
       - key: JWT_SECRET
         generateValue: true
       - key: ADMIN_EMAIL

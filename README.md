@@ -167,3 +167,14 @@ Fly runs the Dockerfile in the repo. Fly requires a valid credit card on the acc
 5. Deploy: `fly deploy --app <your-app>`. Then open `https://<your-app>.fly.dev`.
 
 Fly may show a different `postgres` command for newer managed databases. Follow the prompts if so.
+
+## Use Neon for the database (Render)
+
+1. Create a project at neon.tech and choose the region closest to you.
+2. Copy the connection string (it starts with `postgresql://` and includes `sslmode=require`).
+3. In Render, open the `wnbsls` service, go to **Environment**, and set:
+   - `DATABASE_URL` = the Neon connection string (paste it here only, never in chat or in the repo)
+   - `DATABASE_SSL` = `true`
+4. Click **Manual Deploy > Deploy latest commit**.
+
+Neon's free plan pauses the database after a few minutes of inactivity; the first request after a pause is slower.
