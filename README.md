@@ -136,3 +136,20 @@ Notes:
 - **Changing the admin password:** the seed only creates the admin once. To change it later, add a user or change the password through the database.
 - **Backups:** turn on automated database backups in Render before going live.
 - **Custom domain:** add it in the service settings and point it at Render, then keep HTTPS on.
+
+## Deploy to Railway
+
+The repo includes `railway.json` and a root `package.json`, so Railway builds and starts the app from the repo root.
+
+1. In Railway, create a project: **New Project > Deploy from GitHub repo**, and select `korensorenu-byte/WNBSL`. Allow Railway access to the repo if asked.
+2. In the same project, click **+ New > Database > Add PostgreSQL**.
+3. Open the app service, go to **Variables**, and add:
+   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (Railway fills this in from the database service)
+   - `DATABASE_SSL` = `false` (the internal connection doesn't use TLS)
+   - `JWT_SECRET` = a random string of 32+ characters (for example, from a password generator)
+   - `ADMIN_EMAIL` = the first administrator's login email
+   - `ADMIN_PASSWORD` = 12+ characters
+4. Under **Settings > Networking**, click **Generate Domain** to get a public `*.up.railway.app` address.
+5. Wait for the deploy to show **Active**, then open the domain and sign in.
+
+Railway sets `PORT` automatically. Migrations and the admin seed run on each start and are safe to repeat.
