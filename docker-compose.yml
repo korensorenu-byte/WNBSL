@@ -1,0 +1,14 @@
+# Local PostgreSQL for development. Production should use a managed, backed-up database.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: wnbsls
+      POSTGRES_USER: wnbsls
+      POSTGRES_PASSWORD: change-me
+    ports:
+      - "5432:5432"
+    volumes:
+      - wnbsls-data:/var/lib/postgresql/data
+volumes:
+  wnbsls-data:
