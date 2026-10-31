@@ -118,3 +118,21 @@ For production, add a password-reset flow, two-factor authentication for admins,
 - Mobile-money and bank-transfer import for deposits and repayments.
 - Penalties for late payment and guarantor tracking.
 - Regulatory and Board reports once their formats are confirmed.
+
+## Deploy to Render
+
+The repo includes `render.yaml`, which creates one web service (API and web app) and one PostgreSQL database.
+
+1. Push this repo to GitHub (done: `korensorenu-byte/WNBSL`).
+2. In Render, choose **New > Blueprint** and select this repository.
+3. When prompted, enter `ADMIN_EMAIL` (the first administrator's login email) and `ADMIN_PASSWORD` (12+ characters).
+4. Wait for the first deploy to finish, then open the service URL Render shows (for example `https://wnbsls.onrender.com`).
+5. Sign in with the admin email and password you entered.
+
+`JWT_SECRET` is generated automatically by Render.
+
+Notes:
+- **Free plans:** the web service sleeps when idle, so the first visit can take about 30 seconds. The free database expires after 30 days. Upgrade both before entering real member data.
+- **Changing the admin password:** the seed only creates the admin once. To change it later, add a user or change the password through the database.
+- **Backups:** turn on automated database backups in Render before going live.
+- **Custom domain:** add it in the service settings and point it at Render, then keep HTTPS on.

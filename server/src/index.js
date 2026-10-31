@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'node:path';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import authRoutes from './routes/auth.js';
 import memberRoutes from './routes/members.js';
 import savingsRoutes from './routes/savings.js';
@@ -30,6 +33,14 @@ app.use('/api/savings', savingsRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/investments', investmentRoutes);
 app.use('/api', adminRoutes);
+
+// In production the API also serves the built web app (web/dist), so one service runs everything.
+const here = path.dirname(fileURLToPath(import.meta.url));
+const webDist = path.join(here, '../../web/dist');
+if (existsSync(webDist)) {
+  app.use(express.static(webDist, { index: 'index.html', maxAge: '1h' }));
+  app.get(/^\/(?!api\/).*/, (req, res) => res.sendFile(path.join(webDist, 'index.html')));
+}
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 app.use(errorHandler);
