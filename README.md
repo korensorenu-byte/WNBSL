@@ -153,3 +153,17 @@ The repo includes `railway.json` and a root `package.json`, so Railway builds an
 5. Wait for the deploy to show **Active**, then open the domain and sign in.
 
 Railway sets `PORT` automatically. Migrations and the admin seed run on each start and are safe to repeat.
+
+## Deploy to Fly.io
+
+Fly runs the Dockerfile in the repo. Fly requires a valid credit card on the account for most uses. Prepaid cards can only buy credits, not serve as the saved payment method.
+
+1. Install the Fly CLI (`brew install flyctl` on macOS, or `curl -L https://fly.io/install.sh | sh` on Linux) and run `fly auth login`.
+2. In the repo folder, run `fly launch --no-deploy --copy-config`. Keep the existing `fly.toml`, and pick a unique app name if `wnbsls` is taken.
+3. Create a PostgreSQL database and attach it. This sets the `DATABASE_URL` secret for you:
+   `fly postgres create --name wnbsls-db --region syd` then `fly postgres attach wnbsls-db --app <your-app>`
+4. Set the secrets:
+   `fly secrets set JWT_SECRET=<32+ random characters> ADMIN_EMAIL=<email> ADMIN_PASSWORD=<12+ characters> --app <your-app>`
+5. Deploy: `fly deploy --app <your-app>`. Then open `https://<your-app>.fly.dev`.
+
+Fly may show a different `postgres` command for newer managed databases. Follow the prompts if so.
