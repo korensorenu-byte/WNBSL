@@ -1,7 +1,8 @@
 // Shared loan money movements: funding by members, repayments and investor distributions.
 // Every function takes a transaction client `c` so that all rows change together or not at all.
 import { httpError } from '../middleware/auth.js';
-import { audit } from './http.js';
+import { audit, isoDate } from './http.js';
+import { isHeldForMinor } from './people.js';
 import { allocateRepayment, outstandingBalance } from './finance.js';
 
 export async function fundedTotal(db, loanId) {
@@ -20,10 +21,14 @@ export async function primaryAccountId(c, memberId) {
 /** Debit a savings account for a transfer out. Locks the row and refuses overdrawing. */
 export async function debitSavings(c, { accountId, memberId, amount, reference, actor }) {
   const acc = await c.query(
-    `SELECT a.id, a.status, a.member_id FROM savings_accounts a WHERE a.id = $1 FOR UPDATE`, [accountId]);
+    `SELECT a.id, a.status, a.member_id, a.guardian_member_id, m.date_of_birth
+       FROM savings_accounts a JOIN members m ON m.id = a.member_id WHERE a.id = $1 FOR UPDATE OF a`, [accountId]);
   const a = acc.rows[0];
   if (!a || a.member_id !== memberId) throw httpError(404, 'Savings account not found');
   if (a.status !== 'open') throw httpError(400, 'Savings account is not open');
+  if (isHeldForMinor(a, a.date_of_birth, isoDate())) {
+    throw httpError(400, 'Money in a student investment account cannot be moved while the child is under 18');
+  }
   const bal = await c.query(
     `SELECT COALESCE(SUM(CASE WHEN type='withdrawal' THEN -amount_toea ELSE amount_toea END),0)::bigint AS b
        FROM savings_transactions WHERE account_id = $1`, [accountId]);
@@ -33,6 +38,8 @@ export async function debitSavings(c, { accountId, memberId, amount, reference, 
      VALUES ($1,'withdrawal',$2,$3,$4) RETURNING id`, [accountId, amount, reference, actor?.sub || null]);
   return tx.rows[0].id;
 }
+
+export { creditSavingsOrEarnings };
 
 /** Add money to a member's savings (interest, returned capital). Falls back to earnings if no account. */
 async function creditSavingsOrEarnings(c, { memberId, amount, type, reference, loanId, hold }) {

@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db/index.js';
 import { authenticate, requireRole, httpError } from '../middleware/auth.js';
-import { wrap, audit, toeaFromRequest, isStaff } from '../lib/http.js';
+import { wrap, audit, toeaFromRequest, isStaff, isoDate } from '../lib/http.js';
 import { monthlySavingsInterest } from '../lib/finance.js';
 import { getSettings } from '../lib/settings-store.js';
+import { isHeldForMinor } from '../lib/people.js';
 
 const router = Router();
 router.use(authenticate);
@@ -71,9 +72,14 @@ router.post('/accounts/:id/transactions', requireRole('admin', 'cashier'), wrap(
 
   const balance = await withTransaction(async (c) => {
     // Lock the account row so two withdrawals cannot overdraw it at the same time.
-    const acc = await c.query('SELECT id, status FROM savings_accounts WHERE id = $1 FOR UPDATE', [req.params.id]);
+    const acc = await c.query(
+      `SELECT a.id, a.status, a.guardian_member_id, m.date_of_birth
+         FROM savings_accounts a JOIN members m ON m.id = a.member_id WHERE a.id = $1 FOR UPDATE OF a`, [req.params.id]);
     if (!acc.rows[0]) throw httpError(404, 'Account not found');
     if (acc.rows[0].status !== 'open') throw httpError(400, `Account is ${acc.rows[0].status}`);
+    if (type === 'withdrawal' && isHeldForMinor(acc.rows[0], acc.rows[0].date_of_birth, isoDate())) {
+      throw httpError(400, 'This is a student investment account for a child under 18. Withdrawals are allowed only for approved medical needs.');
+    }
 
     const cur = await c.query(`SELECT ${BALANCE_SQL} AS b FROM savings_transactions WHERE account_id = $1`, [req.params.id]);
     const current = Number(cur.rows[0].b);

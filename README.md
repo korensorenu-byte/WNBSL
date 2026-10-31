@@ -220,3 +220,57 @@ Customers sign in to their own portal after accepting an invitation.
 ### Deployment
 
 Run migrations after deploying (`npm run migrate`). Migration `003` adds loan products, investments, distributions and earnings, and it creates a default "General Loan" product.
+
+
+## Password reset
+
+Anyone can request a reset from **Forgot password?** on the sign-in page (members and staff alike). The email link works once and expires after one hour. The reply is the same whether or not the email is registered, so accounts can't be probed. Setting a new password signs the user in and sends a notice that the password changed.
+
+## Other investments (not loans)
+
+Administrators offer four types, managed under **Settings & audit**:
+- **Fixed deposit:** a fixed term and rate. Principal and simple interest return to the member's savings account at maturity. The payout runs automatically every six hours, or on demand from the same screen.
+- **Project or business shares, agriculture co-operative shares, property or land:** the administrator declares a return. It is shared between holders in proportion to what they hold, and credited to savings or held as earnings according to each member's choice.
+
+Loan investments (funding specific loans) remain separate.
+
+## Loan payout
+
+When a fully funded loan is disbursed, the amount is credited to the borrower's savings account and then debited as the payout. Both entries appear on the statement, so the loan can be traced from the account.
+
+## Student investment accounts
+
+- A parent opens an account for a child under 18 from **Children's accounts**. The child's record is created with the date of birth, and the parent can add money while the child is under 18.
+- Before 18, money in the account can't be withdrawn, moved to an investment, or otherwise transferred out, except for an **approved medical withdrawal**. The parent submits the request with the need and the evidence location, and an administrator approves or declines it. Approval moves the money to the parent's savings and records it.
+- On the child's 18th birthday the account is theirs. The system emails them an invitation to create their own login (the daily job runs automatically), and the parent loses access. The child's email must be on file for the invitation to be sent.
+- Dates are worked out in the Society's timezone (`SOCIETY_TIMEZONE`, default `Pacific/Port_Moresby`), so birthdays take effect on the right day.
+
+## PNG LLG ward platform integration
+
+Households are pushed from the ward platform to the Society's system. New people arrive as **pending review** and are not members until staff approve them on the Officer desk.
+
+1. An administrator creates a key under **Settings & audit → Ward platform connection**. The key is shown once.
+2. The ward platform sends each household to `POST /api/integrations/ward/households` with the header `X-Api-Key: <key>` and this JSON body:
+
+```json
+{
+  "externalRef": "WARD1-HH-0001",
+  "wardCode": "NAL-01",
+  "village": "Aling Tais 1",
+  "head": { "name": "Joseph Mopeng", "address": "Aling Tais 1, Nalobu Ward 1" },
+  "members": [
+    { "externalRef": "WARD1-P-0001", "fullName": "Joseph Mopeng", "dateOfBirth": "1978-03-02",
+      "sex": "male", "relationshipToHead": "head", "phone": "70111222", "email": "optional@example.com", "idNumber": "optional" },
+    { "externalRef": "WARD1-P-0002", "fullName": "Grace Mopeng", "dateOfBirth": "1982-07-19",
+      "sex": "female", "relationshipToHead": "spouse" }
+  ]
+}
+```
+
+- Pushes are idempotent: the same `externalRef` updates the existing record, so the platform can resend safely. Up to 50 members per request.
+- Each member is validated separately. A bad row is reported in `errors` and the rest still save. Status `202` means accepted; `422` means nothing could be saved.
+- Field names are a proposal. If the ward platform uses different names, the mapping is a small change in `server/src/routes/integrations.js`. Please share the platform's field list so the mapping can be confirmed.
+
+## Deployment changes
+
+Run `npm run migrate` (migration `004` adds password resets, student accounts, investment products, households and integration keys). Optional new variable: `SOCIETY_TIMEZONE`.

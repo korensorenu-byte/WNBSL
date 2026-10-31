@@ -14,6 +14,10 @@ import onboardingRoutes from './routes/onboarding.js';
 import marketplaceRoutes from './routes/marketplace.js';
 import portalRoutes from './routes/portal.js';
 import loanProductRoutes from './routes/loanProducts.js';
+import studentRoutes from './routes/students.js';
+import investmentProductRoutes from './routes/investmentProducts.js';
+import integrationRoutes from './routes/integrations.js';
+import { startScheduler } from './lib/jobs.js';
 import { errorHandler } from './middleware/auth.js';
 
 const app = express();
@@ -39,6 +43,9 @@ app.use('/api', onboardingRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/loan-products', loanProductRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/investment-products', investmentProductRoutes);
+app.use('/api/integrations', integrationRoutes);
 app.use('/api/members', memberRoutes);
 app.use('/api/savings', savingsRoutes);
 app.use('/api/loans', loanRoutes);
@@ -56,4 +63,7 @@ if (existsSync(webDist)) {
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 app.use(errorHandler);
 
-app.listen(port, () => console.log(`WNBSLS API listening on port ${port}`));
+app.listen(port, () => {
+  console.log(`WNBSLS API listening on port ${port}`);
+  startScheduler();
+});

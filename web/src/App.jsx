@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, setToken, getToken, toKina } from './api.js';
 import { navigate, usePath, Redirect } from './router.js';
-import { Landing, Login, AcceptInvite } from './public.jsx';
+import { Landing, Login, AcceptInvite, ForgotPassword, ResetPassword } from './public.jsx';
 import { MembersPage, SavingsPage, LoansPage, InvestmentsPage, AdminPage } from './pages.jsx';
-import { TeamPage, OfficerDeskPage, CashDeskPage, ProductsPanel } from './staff.jsx';
+import { TeamPage, OfficerDeskPage, CashDeskPage, ProductsPanel, InvestmentProductsPanel, IntegrationKeysPanel } from './staff.jsx';
 import { PortalHome, LoanMarket, MyLoans, MyInvestments, EarningsPage } from './portal.jsx';
+import { OtherInvestments, ChildrenAccounts } from './portal2.jsx';
 
 const ALL = ['admin', 'officer', 'cashier', 'auditor', 'member'];
 const STAFF = ['admin', 'officer', 'cashier', 'auditor'];
@@ -17,7 +18,9 @@ const SECTIONS = [
   { key: 'members', label: 'Members', memberLabel: 'My details', roles: [...STAFF, 'member'] },
   { key: 'savings', label: 'Savings', memberLabel: 'My savings', roles: ALL },
   { key: 'loans', label: 'Loans', memberLabel: 'My loans', roles: ALL },
-  { key: 'myinvest', label: 'My investments', roles: ['member'] },
+  { key: 'myinvest', label: 'My loan investments', roles: ['member'] },
+  { key: 'otherinvest', label: 'Other investments', roles: ['member'] },
+  { key: 'children', label: "Children's accounts", roles: ['member'] },
   { key: 'earnings', label: 'Earnings & transfers', roles: ['member'] },
   { key: 'investments', label: 'Investments', roles: STAFF },
   { key: 'team', label: 'Team & invitations', roles: ['admin'] },
@@ -47,6 +50,9 @@ export default function App() {
 
   const invite = path.match(/^\/invite\/([^/]+)$/);
   if (invite) return <AcceptInvite token={decodeURIComponent(invite[1])} onLogin={setUser} />;
+  const reset = path.match(/^\/reset\/([^/]+)$/);
+  if (reset) return <ResetPassword token={decodeURIComponent(reset[1])} onLogin={setUser} />;
+  if (path === '/forgot') return <ForgotPassword />;
 
   if (path === '/login') {
     if (user) return <Redirect to="/app" />;
@@ -100,13 +106,21 @@ function Shell({ user, path, onSignOut }) {
         {current === 'savings' && <SavingsPage user={user} />}
         {current === 'loans' && (isMember ? <MyLoans /> : <LoansPage user={user} />)}
         {current === 'myinvest' && <MyInvestments />}
+        {current === 'otherinvest' && <OtherInvestments />}
+        {current === 'children' && <ChildrenAccounts />}
         {current === 'earnings' && <EarningsPage />}
         {current === 'investments' && <InvestmentsPage user={user} />}
         {current === 'team' && <TeamPage user={user} />}
         {current === 'settings' && (
           <>
             <AdminPage user={user} />
-            {user.role === 'admin' && <ProductsPanel />}
+            {user.role === 'admin' && (
+              <>
+                <ProductsPanel />
+                <InvestmentProductsPanel />
+                <IntegrationKeysPanel />
+              </>
+            )}
           </>
         )}
       </main>

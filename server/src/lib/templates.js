@@ -89,3 +89,19 @@ export function loanUpdateEmail({ name, loanNo, status, principal, reason, outst
     text: `Dear ${name},\n\nYour loan application ${loanNo} for ${kina(principal)} has been ${verb}.${reason ? `\nReason: ${reason}` : ''}`,
   };
 }
+
+export function passwordResetEmail({ name, link }) {
+  return {
+    subject: 'Reset your password',
+    html: layout('Reset your password', `<p>Dear ${esc(name)},</p><p>We received a request to reset your password. Choose a new one using the button below. The link works once and expires in one hour.</p>${button(link, 'Choose a new password')}<p>If you did not ask for this, you can ignore this email. Your password will not change.</p>`),
+    text: `Dear ${name},\n\nWe received a request to reset your password. Choose a new one here (valid once, for one hour):\n${link}\n\nIf you did not ask for this, ignore this email.`,
+  };
+}
+
+export function passwordChangedEmail({ name }) {
+  return {
+    subject: 'Your password was changed',
+    html: layout('Password changed', `<p>Dear ${esc(name)},</p><p>Your password was just changed. If this was not you, contact the Society office immediately.</p>`),
+    text: `Dear ${name},\n\nYour password was just changed. If this was not you, contact the Society office immediately.`,
+  };
+}

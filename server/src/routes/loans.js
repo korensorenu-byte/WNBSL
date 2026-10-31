@@ -40,6 +40,18 @@ const LOAN_SELECT = `
     JOIN members m ON m.id = l.member_id
     LEFT JOIN loan_products p ON p.id = l.product_id`;
 
+/** The borrower's main savings account, opened if the member has none yet. */
+async function ensureBorrowerAccount(c, memberId) {
+  const existing = await c.query(
+    `SELECT id FROM savings_accounts WHERE member_id = $1 AND status = 'open' AND guardian_member_id IS NULL
+      ORDER BY opened_on, account_no LIMIT 1`, [memberId]);
+  if (existing.rows[0]) return existing.rows[0].id;
+  const created = await c.query(
+    `INSERT INTO savings_accounts (account_no, member_id, product) VALUES ('S' || nextval('account_no_seq'), $1, 'Regular Savings')
+     RETURNING id`, [memberId]);
+  return created.rows[0].id;
+}
+
 /** Savings + share capital for a member, in toea. */
 async function savingsAndShares(db, memberId) {
   const r = await db.query(
@@ -242,6 +254,17 @@ router.post('/:id/disburse', requireRole('admin'), wrap(async (req, res) => {
     }
     await c.query(`UPDATE loans SET status='disbursed', disbursed_at=$2, disbursed_by=$3 WHERE id=$1`,
       [loan.id, disbursedOn, req.user.sub]);
+
+    // Credit the loan to the borrower's savings account, then debit the same amount as the payout.
+    // The statement shows both entries, so the loan can be traced from the account.
+    const borrowerAccount = await ensureBorrowerAccount(c, loan.member_id);
+    const principal = Number(loan.principal_toea);
+    await c.query(
+      `INSERT INTO savings_transactions (account_id, type, amount_toea, reference, created_by)
+       VALUES ($1,'deposit',$2,$3,$4)`, [borrowerAccount, principal, `Loan ${loan.loan_no} credited`, req.user.sub]);
+    await c.query(
+      `INSERT INTO savings_transactions (account_id, type, amount_toea, reference, created_by)
+       VALUES ($1,'withdrawal',$2,$3,$4)`, [borrowerAccount, principal, `Loan ${loan.loan_no} paid out`, req.user.sub]);
     await audit(req.user, 'loan.disburse', 'loan', loan.id, { disbursedOn }, c);
   });
   await emailMemberAboutLoan(req.params.id, { status: 'disbursed' });

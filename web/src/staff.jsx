@@ -168,6 +168,9 @@ export function OfficerDeskPage({ user }) {
       )}
       {!isAdmin && <p className="muted small">Loan decisions are made by the administrator. Applications are recorded from the Loans page.</p>}
 
+      <WardQueue isAdmin={isAdmin} />
+      <MedicalQueue isAdmin={isAdmin} />
+
       <h3>Overdue instalments</h3>
       {arrears && (
         <Table
@@ -376,6 +379,155 @@ export function ProductsPanel() {
           await api('/loan-products', { method: 'POST', body: { ...f, maxAmount: toToea(f.maxAmount), annualRatePct: Number(f.annualRatePct), maxTermMonths: Number(f.maxTermMonths) } });
           setF({ ...f, name: '', description: '' }); reload();
         }}>Add product</Action>
+      </div>
+    </>
+  );
+}
+
+// ---------- Ward registrations from the PNG LLG ward platform ----------
+export function WardQueue({ isAdmin }) {
+  const { data, error, reload } = useData('/integrations/ward/pending', []);
+  const [note, setNote] = useState('');
+  if (error) return <div className="error">{error}</div>;
+  return (
+    <>
+      <h3>Ward registrations to review</h3>
+      <p className="muted small">People sent by the PNG LLG ward platform. They are not members until approved.</p>
+      {note && <div className="card small">{note}</div>}
+      {data && (
+        <Table
+          head={['Member no', 'Name', 'Born', 'Sex', 'Relation', 'Household', 'Village', '']}
+          rows={data.map((p) => [
+            p.memberNo, p.fullName, fmtDate(p.dateOfBirth), p.sex || '—', p.relationshipToHead || '—',
+            p.householdRef || '—', p.village || '—',
+            <span className="inline">
+              <Action onRun={async () => {
+                const r = await api(`/integrations/ward/members/${p.id}/approve`, { method: 'POST', body: { invite: Boolean(p.email) } });
+                setNote(`${p.fullName} approved.${r.invitation ? ' Portal invitation emailed.' : ''}`); reload();
+              }}>Approve</Action>
+              <Action className="ghost" onRun={async () => { await api(`/integrations/ward/members/${p.id}/reject`, { method: 'POST', body: { reason: 'Not confirmed' } }); reload(); }}>Reject</Action>
+            </span>,
+          ])}
+          empty="No ward registrations waiting."
+        />
+      )}
+    </>
+  );
+}
+
+// ---------- Medical withdrawal requests from student investment accounts ----------
+export function MedicalQueue({ isAdmin }) {
+  const { data, error, reload } = useData('/students/medical-requests', []);
+  if (error) return <div className="error">{error}</div>;
+  return (
+    <>
+      <h3>Medical withdrawal requests</h3>
+      <p className="muted small">Requests from parents for money held in a child's investment account. Approval moves the money to the parent's savings.</p>
+      {data && (
+        <Table
+          head={['Child', 'Parent', 'Amount', 'Reason', 'Evidence', 'Status', 'Date', isAdmin ? '' : null].filter((x) => x !== null)}
+          rows={data.map((r) => [
+            r.childName, r.guardianName, toKina(r.amount), r.reason, r.evidenceNote || '—', <Badge status={r.status} />, fmtDate(r.createdAt),
+            ...(isAdmin && r.status === 'pending' ? [<span className="inline">
+              <Action onRun={async () => { await api(`/students/medical-requests/${r.id}/approve`, { method: 'POST', body: {} }); reload(); }}>Approve</Action>
+              <Action className="ghost" onRun={async () => { await api(`/students/medical-requests/${r.id}/decline`, { method: 'POST', body: { note: 'Not supported by evidence' } }); reload(); }}>Decline</Action>
+            </span>] : isAdmin ? [''] : []),
+          ])}
+          empty="No medical requests."
+        />
+      )}
+    </>
+  );
+}
+
+// ---------- Investment products and distributions (administrator) ----------
+export function InvestmentProductsPanel() {
+  const { data, error, reload } = useData('/investment-products', []);
+  const [f, setF] = useState({ name: '', kind: 'fixed_deposit', annualRatePct: '6', termMonths: '12', minAmount: '10', description: '' });
+  const [dist, setDist] = useState({ id: '', amount: '', note: '' });
+  const [msg, setMsg] = useState('');
+  if (error) return <div className="error">{error}</div>;
+  return (
+    <>
+      <h3>Other investment products</h3>
+      <p className="muted small">Fixed deposits pay interest at maturity. For shares and property, declare a return and it is shared by holders in proportion to what they hold.</p>
+      {msg && <div className="card small">{msg}</div>}
+      {data && (
+        <Table
+          head={['Product', 'Type', 'Rate', 'Term', 'Minimum', 'Status']}
+          rows={data.map((p) => [p.name, p.kindLabel, `${p.annualRatePct}%`, p.termMonths ? `${p.termMonths} mo` : '—', toKina(p.minAmount), <Badge status={p.status === 'open' ? 'active' : 'closed'} />])}
+          empty="No products yet."
+        />
+      )}
+      <div className="card form-grid">
+        <Field label="Name"><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+        <Field label="Type">
+          <select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>
+            <option value="fixed_deposit">Fixed deposit</option>
+            <option value="project_shares">Project or business shares</option>
+            <option value="agri_shares">Agriculture co-operative shares</option>
+            <option value="property">Property or land</option>
+          </select>
+        </Field>
+        <Field label="Rate % p.a. (fixed deposits)"><input type="number" min="0" step="0.1" value={f.annualRatePct} onChange={(e) => setF({ ...f, annualRatePct: e.target.value })} /></Field>
+        {f.kind === 'fixed_deposit' && <Field label="Term (months)"><input type="number" min="1" value={f.termMonths} onChange={(e) => setF({ ...f, termMonths: e.target.value })} /></Field>}
+        <Field label="Minimum (K)"><input type="number" min="0" value={f.minAmount} onChange={(e) => setF({ ...f, minAmount: e.target.value })} /></Field>
+        <Field label="Description"><input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
+        <Action onRun={async () => {
+          await api('/investment-products', { method: 'POST', body: { ...f, annualRatePct: Number(f.annualRatePct), termMonths: Number(f.termMonths), minAmount: toToea(f.minAmount) } });
+          setF({ ...f, name: '', description: '' }); reload();
+        }}>Add product</Action>
+      </div>
+
+      <div className="card form-grid">
+        <Field label="Declare a return for">
+          <select value={dist.id} onChange={(e) => setDist({ ...dist, id: e.target.value })}>
+            <option value="">Choose a product…</option>
+            {(data || []).filter((p) => p.kind !== 'fixed_deposit').map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Total return (K)"><input type="number" min="0" step="0.01" value={dist.amount} onChange={(e) => setDist({ ...dist, amount: e.target.value })} /></Field>
+        <Field label="Note"><input value={dist.note} onChange={(e) => setDist({ ...dist, note: e.target.value })} /></Field>
+        <Action onRun={async () => {
+          const r = await api(`/investment-products/${dist.id}/distribute`, { method: 'POST', body: { amount: toToea(dist.amount), note: dist.note } });
+          setMsg(`Return of ${toKina(r.amount)} shared among ${r.holders} holder(s).`); setDist({ id: '', amount: '', note: '' });
+        }}>Share return</Action>
+        <Action className="ghost" onRun={async () => {
+          const r = await api('/investment-products/process-maturities', { method: 'POST' });
+          setMsg(`Fixed deposits checked: ${r.checked}; paid out: ${r.paid}.`); reload();
+        }}>Pay matured fixed deposits now</Action>
+      </div>
+    </>
+  );
+}
+
+// ---------- Integration keys for the PNG LLG ward platform (administrator) ----------
+export function IntegrationKeysPanel() {
+  const { data, error, reload } = useData('/integrations/keys', []);
+  const [name, setName] = useState('PNG LLG Ward Platform');
+  const [created, setCreated] = useState(null);
+  if (error) return <div className="error">{error}</div>;
+  return (
+    <>
+      <h3>Ward platform connection</h3>
+      <p className="muted small">The ward platform sends households to <span className="mono">POST /api/integrations/ward/households</span> with the header <span className="mono">X-Api-Key</span>. The key is shown once; copy it into the platform's settings.</p>
+      {created && (
+        <div className="card">
+          <div>New key for <b>{created.name}</b>. Copy it now; it will not be shown again:</div>
+          <div className="mono">{created.key}</div>
+        </div>
+      )}
+      {data && (
+        <Table
+          head={['Name', 'Created', 'Last used', 'Status', '']}
+          rows={data.map((k) => [k.name, fmtDate(k.created_at), k.last_used_at ? new Date(k.last_used_at).toLocaleString('en-GB') : 'Never', <Badge status={k.active ? 'active' : 'closed'} />,
+            k.active ? <Action className="ghost" onRun={async () => { await api(`/integrations/keys/${k.id}/revoke`, { method: 'POST' }); reload(); }}>Revoke</Action> : null])}
+          empty="No keys yet."
+        />
+      )}
+      <div className="card form-row">
+        <input value={name} onChange={(e) => setName(e.target.value)} />
+        <Action onRun={async () => { const r = await api('/integrations/keys', { method: 'POST', body: { name } }); setCreated(r); reload(); }}>Create key</Action>
       </div>
     </>
   );

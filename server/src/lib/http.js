@@ -19,8 +19,13 @@ export function toeaFromRequest(value, name) {
   return n;
 }
 
+// "Today" for the Society is measured in its own timezone, not UTC, so birthdays,
+// due dates and daily jobs fall on the right day in Papua New Guinea.
+const SOCIETY_TZ = process.env.SOCIETY_TIMEZONE || 'Pacific/Port_Moresby';
+const dayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: SOCIETY_TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+
 export function isoDate(value, fallback = new Date()) {
-  if (!value) return fallback.toISOString().slice(0, 10);
+  if (!value) return dayFormat.format(fallback);
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) throw httpError(400, 'Invalid date');
   return d.toISOString().slice(0, 10);

@@ -204,6 +204,7 @@ export function Login({ onLogin, notice }) {
         <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></label>
         {error && <div className="error">{error}</div>}
         <button className="primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        <button type="button" className="ghost small" onClick={() => navigate('/forgot')}>Forgot password?</button>
         <p className="muted small">New here? Use the invitation link sent to your email. Staff accounts are created by the administrator.</p>
       </form>
     </div>
@@ -269,6 +270,100 @@ export function AcceptInvite({ token, onLogin }) {
         {error && <div className="error">{error}</div>}
         <button className="primary" disabled={busy}>{busy ? 'Activating…' : 'Activate my account'}</button>
         <p className="muted small">This invitation expires on {new Date(info.expiresAt).toLocaleDateString('en-GB')}.</p>
+      </form>
+    </div>
+  );
+}
+
+// ---------- Forgot password (all users) ----------
+export function ForgotPassword() {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true); setError('');
+    try {
+      await api('/auth/forgot', { method: 'POST', body: { email } });
+      setSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="login-wrap">
+      <form className="card login" onSubmit={submit}>
+        <button type="button" className="ghost small back" onClick={() => navigate('/login')}>← Back to sign in</button>
+        <h1>Forgot your password?</h1>
+        {sent ? (
+          <p>If an account exists for <b>{email}</b>, we have sent a reset link. The link works once and expires in one hour. Check your spam folder if it does not arrive.</p>
+        ) : (
+          <>
+            <p className="muted small">Enter the email address on your account and we will send you a reset link.</p>
+            <label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" /></label>
+            {error && <div className="error">{error}</div>}
+            <button className="primary" disabled={busy}>{busy ? 'Sending…' : 'Send reset link'}</button>
+          </>
+        )}
+      </form>
+    </div>
+  );
+}
+
+// ---------- Choose a new password from an emailed link ----------
+export function ResetPassword({ token, onLogin }) {
+  const [info, setInfo] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api(`/auth/reset/${encodeURIComponent(token)}`).then(setInfo).catch((e) => setLoadError(e.message));
+  }, [token]);
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    if (password !== confirm) return setError('The two passwords do not match.');
+    setBusy(true);
+    try {
+      const r = await api('/auth/reset', { method: 'POST', body: { token, password } });
+      setToken(r.token);
+      onLogin(r.user);
+      navigate('/app', { replace: true });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div className="login-wrap">
+        <div className="card login">
+          <h1>Reset link</h1>
+          <div className="error">{loadError}</div>
+          <button className="primary" onClick={() => navigate('/forgot')}>Request a new link</button>
+        </div>
+      </div>
+    );
+  }
+  if (!info) return <div className="center muted">Checking your link…</div>;
+  return (
+    <div className="login-wrap">
+      <form className="card login" onSubmit={submit}>
+        <h1>Choose a new password</h1>
+        <p className="muted small">For {info.email}</p>
+        <label>New password (12+ characters)<input type="password" required minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></label>
+        <label>Confirm new password<input type="password" required minLength={12} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" /></label>
+        {error && <div className="error">{error}</div>}
+        <button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Save password and sign in'}</button>
       </form>
     </div>
   );
