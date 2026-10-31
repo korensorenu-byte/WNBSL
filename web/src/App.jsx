@@ -3,21 +3,26 @@ import { api, setToken, getToken, toKina } from './api.js';
 import { navigate, usePath, Redirect } from './router.js';
 import { Landing, Login, AcceptInvite } from './public.jsx';
 import { MembersPage, SavingsPage, LoansPage, InvestmentsPage, AdminPage } from './pages.jsx';
-import { TeamPage, OfficerDeskPage, CashDeskPage } from './staff.jsx';
+import { TeamPage, OfficerDeskPage, CashDeskPage, ProductsPanel } from './staff.jsx';
+import { PortalHome, LoanMarket, MyLoans, MyInvestments, EarningsPage } from './portal.jsx';
 
 const ALL = ['admin', 'officer', 'cashier', 'auditor', 'member'];
+const STAFF = ['admin', 'officer', 'cashier', 'auditor'];
+// memberLabel: what a customer sees for the same screen.
 const SECTIONS = [
-  { key: 'home', label: 'Dashboard', roles: ALL },
+  { key: 'home', label: 'Dashboard', memberLabel: 'Overview', roles: ALL },
+  { key: 'market', label: 'Loan market', memberLabel: 'Loan market', roles: ['member'] },
   { key: 'cash', label: 'Cash desk', roles: ['admin', 'cashier'] },
   { key: 'officer', label: 'Officer desk', roles: ['admin', 'officer'] },
-  { key: 'members', label: 'Members', roles: ['admin', 'officer', 'cashier', 'auditor', 'member'] },
-  { key: 'savings', label: 'Savings', roles: ALL },
-  { key: 'loans', label: 'Loans', roles: ALL },
-  { key: 'investments', label: 'Investments', roles: ['admin', 'officer', 'cashier', 'auditor'] },
+  { key: 'members', label: 'Members', memberLabel: 'My details', roles: [...STAFF, 'member'] },
+  { key: 'savings', label: 'Savings', memberLabel: 'My savings', roles: ALL },
+  { key: 'loans', label: 'Loans', memberLabel: 'My loans', roles: ALL },
+  { key: 'myinvest', label: 'My investments', roles: ['member'] },
+  { key: 'earnings', label: 'Earnings & transfers', roles: ['member'] },
+  { key: 'investments', label: 'Investments', roles: STAFF },
   { key: 'team', label: 'Team & invitations', roles: ['admin'] },
   { key: 'settings', label: 'Settings & audit', roles: ['admin', 'auditor'] },
 ];
-const MEMBER_LABELS = { home: 'My account', members: 'My details', savings: 'My savings', loans: 'My loans' };
 
 export default function App() {
   const path = usePath();
@@ -61,7 +66,7 @@ function Shell({ user, path, onSignOut }) {
   const items = SECTIONS.filter((s) => s.roles.includes(user.role));
   const requested = path.replace(/^\/app\/?/, '').split('/')[0] || 'home';
   const current = items.some((s) => s.key === requested) ? requested : 'home';
-  const label = (s) => (isMember ? MEMBER_LABELS[s.key] || s.label : s.label);
+  const label = (s) => (isMember && s.memberLabel ? s.memberLabel : s.label);
 
   if (requested !== current && path !== '/app') return <Redirect to="/app" />;
 
@@ -87,15 +92,23 @@ function Shell({ user, path, onSignOut }) {
         </div>
       </aside>
       <main className="content">
-        {current === 'home' && <Dashboard user={user} />}
+        {current === 'home' && (isMember ? <PortalHome user={user} /> : <Dashboard user={user} />)}
+        {current === 'market' && <LoanMarket user={user} />}
         {current === 'cash' && <CashDeskPage />}
         {current === 'officer' && <OfficerDeskPage user={user} />}
         {current === 'members' && <MembersPage user={user} />}
         {current === 'savings' && <SavingsPage user={user} />}
-        {current === 'loans' && <LoansPage user={user} />}
+        {current === 'loans' && (isMember ? <MyLoans /> : <LoansPage user={user} />)}
+        {current === 'myinvest' && <MyInvestments />}
+        {current === 'earnings' && <EarningsPage />}
         {current === 'investments' && <InvestmentsPage user={user} />}
         {current === 'team' && <TeamPage user={user} />}
-        {current === 'settings' && <AdminPage user={user} />}
+        {current === 'settings' && (
+          <>
+            <AdminPage user={user} />
+            {user.role === 'admin' && <ProductsPanel />}
+          </>
+        )}
       </main>
     </div>
   );

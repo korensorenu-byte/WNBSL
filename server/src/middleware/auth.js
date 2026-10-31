@@ -42,6 +42,9 @@ export function httpError(status, message) {
 }
 
 export function errorHandler(err, req, res, _next) {
+  // 22P02: malformed id (e.g. not a UUID) and 23514: a CHECK constraint, both caused by bad input.
+  if (err.code === '22P02') return res.status(400).json({ error: 'Invalid identifier' });
+  if (err.code === '23514') return res.status(400).json({ error: 'One of the values is outside the allowed range' });
   const status = err.status || (err instanceof RangeError ? 400 : 500);
   if (status === 500) console.error(err);
   res.status(status).json({ error: status === 500 ? 'Unexpected server error' : err.message });

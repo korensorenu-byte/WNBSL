@@ -173,3 +173,10 @@ textarea { font: inherit; padding: 0.5rem 0.6rem; border: 1px solid #c9d4cf; bor
 .badge.pending, .badge.logged { background: #fff4e0; color: var(--warn); }
 .badge.accepted, .badge.sent { background: #e3f5ea; color: var(--ok); }
 .badge.expired, .badge.cancelled, .badge.failed { background: #fde8e6; color: var(--danger); }
+
+/* ---------- Member portal ---------- */
+.progress { position: relative; background: #e6ece9; border-radius: 999px; height: 20px; min-width: 110px; overflow: hidden; }
+.progress > div { background: var(--green-2); height: 100%; }
+.progress span { position: absolute; inset: 0; text-align: center; font-size: 0.75rem; line-height: 20px; color: #1d2a25; }
+.radio { display: flex; gap: 0.5rem; align-items: center; margin: 0.4rem 0; }
+.grid3 .card h3 { margin-top: 0; }

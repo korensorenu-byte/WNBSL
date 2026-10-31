@@ -339,3 +339,44 @@ function CashMember({ memberId, onClear, onReceipt }) {
     </>
   );
 }
+
+// ---------- Loan products (administrator): create products and change rates ----------
+export function ProductsPanel() {
+  const { data: products, error, reload } = useData('/loan-products', []);
+  const [f, setF] = useState({ name: '', description: '', annualRatePct: '12', method: 'reducing', maxAmount: '', maxTermMonths: '36' });
+  if (error) return <div className="error">{error}</div>;
+  return (
+    <>
+      <h3>Loan products</h3>
+      <p className="muted small">Products are shown to members on the loan market. A change to a rate applies to new applications only.</p>
+      {products && (
+        <Table
+          head={['Product', 'Rate', 'Method', 'Max amount', 'Max term', 'Status', '']}
+          rows={products.map((p) => [
+            p.name, `${p.annualRatePct}%`, p.method, toKina(p.maxAmount), `${p.maxTermMonths} mo`, <Badge status={p.active ? 'active' : 'closed'} />,
+            <Action className="ghost" onRun={async () => { await api(`/loan-products/${p.id}`, { method: 'PATCH', body: { active: !p.active } }); reload(); }}>
+              {p.active ? 'Hide' : 'Show'}
+            </Action>,
+          ])}
+        />
+      )}
+      <div className="card form-grid">
+        <Field label="Name"><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+        <Field label="Annual rate %"><input type="number" min="0" step="0.1" value={f.annualRatePct} onChange={(e) => setF({ ...f, annualRatePct: e.target.value })} /></Field>
+        <Field label="Method">
+          <select value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>
+            <option value="reducing">Reducing balance</option>
+            <option value="flat">Flat rate</option>
+          </select>
+        </Field>
+        <Field label="Max amount (K)"><input type="number" min="0" value={f.maxAmount} onChange={(e) => setF({ ...f, maxAmount: e.target.value })} /></Field>
+        <Field label="Max term (months)"><input type="number" min="1" max="120" value={f.maxTermMonths} onChange={(e) => setF({ ...f, maxTermMonths: e.target.value })} /></Field>
+        <Field label="Description"><input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
+        <Action onRun={async () => {
+          await api('/loan-products', { method: 'POST', body: { ...f, maxAmount: toToea(f.maxAmount), annualRatePct: Number(f.annualRatePct), maxTermMonths: Number(f.maxTermMonths) } });
+          setF({ ...f, name: '', description: '' }); reload();
+        }}>Add product</Action>
+      </div>
+    </>
+  );
+}

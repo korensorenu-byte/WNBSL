@@ -11,6 +11,9 @@ import investmentRoutes from './routes/investments.js';
 import adminRoutes from './routes/admin.js';
 import invitationRoutes from './routes/invitations.js';
 import onboardingRoutes from './routes/onboarding.js';
+import marketplaceRoutes from './routes/marketplace.js';
+import portalRoutes from './routes/portal.js';
+import loanProductRoutes from './routes/loanProducts.js';
 import { errorHandler } from './middleware/auth.js';
 
 const app = express();
@@ -33,6 +36,9 @@ app.use('/api/auth', authRoutes);
 // Invitations and onboarding are mounted before the admin router, which applies auth to everything it serves.
 app.use('/api/invitations', invitationRoutes);
 app.use('/api', onboardingRoutes);
+app.use('/api/marketplace', marketplaceRoutes);
+app.use('/api/portal', portalRoutes);
+app.use('/api/loan-products', loanProductRoutes);
 app.use('/api/members', memberRoutes);
 app.use('/api/savings', savingsRoutes);
 app.use('/api/loans', loanRoutes);

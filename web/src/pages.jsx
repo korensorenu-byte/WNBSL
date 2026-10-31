@@ -308,6 +308,8 @@ function LoanApplication({ memberId, onDone }) {
 
 function StaffLoanApplication({ onDone }) {
   const [open, setOpen] = useState(false);
+  const [productId, setProductId] = useState('');
+  const { data: products } = useData('/loan-products', []);
   const [memberId, setMemberId] = useState('');
   const [amount, setAmount] = useState('');
   const [term, setTerm] = useState(12);
@@ -322,11 +324,17 @@ function StaffLoanApplication({ onDone }) {
           {(members || []).map((m) => <option key={m.id} value={m.id}>{m.memberNo} – {m.fullName}</option>)}
         </select>
       </Field>
+      <Field label="Product">
+        <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+          <option value="">Select product…</option>
+          {(products || []).map((p) => <option key={p.id} value={p.id}>{p.name} · {p.annualRatePct}%</option>)}
+        </select>
+      </Field>
       <Field label="Amount (K)"><input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
       <Field label="Term (months)"><input type="number" min="1" value={term} onChange={(e) => setTerm(e.target.value)} /></Field>
       <Field label="Purpose"><input value={purpose} onChange={(e) => setPurpose(e.target.value)} /></Field>
       <Action onRun={async () => {
-        await api('/loans', { method: 'POST', body: { memberId, amount: toToea(amount), termMonths: Number(term), purpose } });
+        await api('/loans', { method: 'POST', body: { memberId, productId, amount: toToea(amount), termMonths: Number(term), purpose } });
         setOpen(false); onDone();
       }}>Submit application</Action>
     </div>

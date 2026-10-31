@@ -62,6 +62,23 @@ export function Landing({ user }) {
         </div>
       </section>
 
+      {info?.products?.length > 0 && (
+        <section id="products" className="section">
+          <h2>Loan products</h2>
+          <p className="muted">Compare what each loan costs. Members can apply for any product once they have an account.</p>
+          <div className="grid3">
+            {info.products.map((p) => (
+              <div key={p.name} className="card">
+                <h3>{p.name}</h3>
+                <div className="stat-value">{p.annualRatePct}% <span className="muted small">p.a. {p.method === 'flat' ? 'flat' : 'reducing balance'}</span></div>
+                <div className="small muted">Up to K{(p.maxAmount / 100).toLocaleString('en-US')} over {p.maxTermMonths} months</div>
+                <p className="small">{p.description}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <LoanCalculator info={info} />
       <JoinForm />
 

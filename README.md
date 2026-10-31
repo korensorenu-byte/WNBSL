@@ -197,3 +197,26 @@ Neon's free plan pauses the database after a few minutes of inactivity; the firs
 ### Deployment note
 
 Set `APP_URL` to the public address of the deployed site, otherwise invitation links will point to localhost.
+
+
+## Member portal, loan market and earnings
+
+Customers sign in to their own portal after accepting an invitation.
+
+- **Overview:** savings, share capital, earnings held, loans outstanding, money invested, interest earned, upcoming repayments and recent activity.
+- **Loan market:** compare loan products, apply for a loan, and compare up to three open loans side by side (rate, term, monthly payment, total interest, funding progress). Borrowers are anonymous to other members.
+- **Fund a loan:** a member commits part or all of an open loan from a savings account. Members cannot fund their own loans. A loan is paid out only once it is fully funded.
+- **My loans:** outstanding balance, schedule, overdue amounts, and repayment from savings or from held earnings.
+- **My investments:** each position with its stage (waiting for funding, earning, or repaid), capital returned, and interest earned.
+- **Earnings & transfers:** interest goes to savings automatically by default. A member can choose to hold it as earnings and then move it to savings, or use it to repay a loan.
+
+### How the money moves
+
+- Funding a loan debits the member's savings and is recorded against that loan.
+- Each repayment is split between investors in proportion to their share. Every investor's interest and capital return is recorded per repayment in `investment_distributions`.
+- Interest and returned capital are credited to the investor's savings (or held as earnings, if they chose that).
+- Loan products are managed by the administrator. A rate change applies to new applications only.
+
+### Deployment
+
+Run migrations after deploying (`npm run migrate`). Migration `003` adds loan products, investments, distributions and earnings, and it creates a default "General Loan" product.

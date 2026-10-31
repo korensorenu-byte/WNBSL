@@ -27,7 +27,14 @@ function throttle(req, res, next) {
 // ---- Public: landing page information (no login) ----
 router.get('/public/info', wrap(async (req, res) => {
   const s = await getSettings();
+  const products = await query(
+    `SELECT name, description, annual_rate_pct, method, max_amount_toea, max_term_months
+       FROM loan_products WHERE active = TRUE ORDER BY annual_rate_pct, name`);
   res.json({
+    products: products.rows.map((p) => ({
+      name: p.name, description: p.description, annualRatePct: Number(p.annual_rate_pct), method: p.method,
+      maxAmount: Number(p.max_amount_toea), maxTermMonths: p.max_term_months,
+    })),
     societyName: s.society_name || society(),
     savingsInterestRatePct: s.savings_interest_rate_pct,
     loanInterestRatePct: s.loan_interest_rate_pct,
